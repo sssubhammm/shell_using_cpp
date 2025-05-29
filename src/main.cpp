@@ -13,6 +13,9 @@ int main() {
     if (!getline(cin, input)) break;
     if(input == "exit 0") return 0;
     else if (input.find("echo") != string::npos) cout << input.substr(5) << endl;
+    else if (input.substr(0, 9) == "type echo" || input.substr(0, 9) == "type exit" || input.substr(0, 9) == "type type"){
+      cout << input.substr(5) + " is a shell builtin" << endl;
+    }
     else cout << input << ": command not found" << endl;
   }
   return 0;
