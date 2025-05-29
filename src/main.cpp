@@ -12,6 +12,8 @@ int main() {
     cout << "$ ";
     if (!getline(cin, input)) break;
     if(input == "exit 0") return 0;
-    cout << input << ": command not found" << endl;
+    else if (input.find("echo") != string::npos) cout << input.substr(5) << endl;
+    else cout << input << ": command not found" << endl;
   }
+  return 0;
 }
