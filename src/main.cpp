@@ -3,12 +3,13 @@
 #include <sstream>
 #include <vector>
 #include <cstdlib>     // for getenv
-#include <unistd.h>    // for access(), fork(), exec()
+#include <unistd.h>    // for access(), fork(), exec(), getcwd()
 #include <sys/wait.h>  // for wait()
+#include <limits.h>    // for PATH_MAX
 using namespace std;
 
 bool is_builtin(const string& cmd) {
-    return cmd == "echo" || cmd == "exit" || cmd == "type";
+    return cmd == "echo" || cmd == "exit" || cmd == "type" || cmd == "pwd";
 }
 
 string find_in_path(const string& cmd) {
@@ -37,6 +38,15 @@ vector<string> split_args(const string& input) {
     return args;
 }
 
+void handle_pwd() {
+    char buffer[PATH_MAX];
+    if (getcwd(buffer, sizeof(buffer)) != nullptr) {
+        cout << buffer << endl;
+    } else {
+        cerr << "pwd: error getting current directory" << endl;
+    }
+}
+
 int main() {
     cout << std::unitbuf;
     cerr << std::unitbuf;
@@ -50,28 +60,31 @@ int main() {
 
         if (input == "exit 0") break;
 
-        if (input.rfind("echo ", 0) == 0) {
+        vector<string> args = split_args(input);
+        if (args.empty()) continue;
+
+        string cmd = args[0];
+
+        if (cmd == "echo" && args.size() > 1) {
+            // Handle echo with arguments
             cout << input.substr(5) << endl;
-        } else if (input.rfind("type ", 0) == 0) {
-            string cmd = input.substr(5);
-            if (is_builtin(cmd)) {
-                cout << cmd << " is a shell builtin" << endl;
+        } else if (cmd == "type" && args.size() > 1) {
+            string target_cmd = args[1];
+            if (is_builtin(target_cmd)) {
+                cout << target_cmd << " is a shell builtin" << endl;
             } else {
-                string path = find_in_path(cmd);
+                string path = find_in_path(target_cmd);
                 if (!path.empty()) {
-                    cout << cmd << " is " << path << endl;
+                    cout << target_cmd << " is " << path << endl;
                 } else {
-                    cout << cmd << ": not found" << endl;
+                    cout << target_cmd << ": not found" << endl;
                 }
             }
+        } else if (cmd == "pwd") {
+            handle_pwd();
         } else {
-
-            vector<string> args = split_args(input);
-            if (args.empty()) continue;
-            
-            string cmd_path = find_in_path(args[0]);
+            string cmd_path = find_in_path(cmd);
             if (!cmd_path.empty()) {
-
                 char** argv = new char*[args.size() + 1];
                 for (size_t i = 0; i < args.size(); i++) {
                     argv[i] = const_cast<char*>(args[i].c_str());
@@ -80,13 +93,10 @@ int main() {
                 
                 pid_t pid = fork();
                 if (pid == 0) {
-
                     execv(cmd_path.c_str(), argv);
-
-                    cerr << args[0] << ": execution failed" << endl;
+                    cerr << cmd << ": execution failed" << endl;
                     exit(1);
                 } else if (pid > 0) {
-
                     wait(nullptr);
                 } else {
                     cerr << "fork failed" << endl;
@@ -94,10 +104,9 @@ int main() {
                 
                 delete[] argv;
             } else {
-                cout << args[0] << ": command not found" << endl;
+                cout << cmd << ": command not found" << endl;
             }
         }
     }
-
     return 0;
 }
