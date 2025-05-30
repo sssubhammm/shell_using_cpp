@@ -47,6 +47,17 @@ void handle_pwd() {
     }
 }
 
+void handle_cd(const vector<string>& args) {
+  if (args.size() < 2) {
+      cerr << "cd: missing argument" << endl;
+      return;
+  }
+  const string& path = args[1];
+  if (chdir(path.c_str()) != 0) {
+      perror(("cd: " + path).c_str());
+  }
+}
+
 int main() {
     cout << std::unitbuf;
     cerr << std::unitbuf;
@@ -66,7 +77,6 @@ int main() {
         string cmd = args[0];
 
         if (cmd == "echo" && args.size() > 1) {
-            // Handle echo with arguments
             cout << input.substr(5) << endl;
         } else if (cmd == "type" && args.size() > 1) {
             string target_cmd = args[1];
@@ -82,6 +92,8 @@ int main() {
             }
         } else if (cmd == "pwd") {
             handle_pwd();
+        } else if(cmd == "cd") {
+            handle_cd(args);
         } else {
             string cmd_path = find_in_path(cmd);
             if (!cmd_path.empty()) {
