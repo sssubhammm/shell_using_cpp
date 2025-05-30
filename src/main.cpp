@@ -6,6 +6,7 @@
 #include <unistd.h>    // for access(), fork(), exec(), getcwd()
 #include <sys/wait.h>  // for wait()
 #include <limits.h>    // for PATH_MAX
+#include <pwd.h>  // for getpwuid()
 using namespace std;
 
 bool is_builtin(const string& cmd) {
@@ -47,12 +48,40 @@ void handle_pwd() {
     }
 }
 
+string expand_tilde(const string& path) {
+  if (path.empty()) return path;
+  
+  // Handle ~ at start of path
+  if (path[0] == '~') {
+      const char* home = getenv("HOME");
+      if (home == nullptr) {
+          home = getpwuid(getuid())->pw_dir;
+      }
+      if (home != nullptr) {
+          if (path.size() == 1) {  // just "~"
+              return home;
+          } else if (path[1] == '/') {  // "~/something"
+              return string(home) + path.substr(1);
+          }
+      }
+  }
+  return path;
+}
+
 void handle_cd(const vector<string>& args) {
   if (args.size() < 2) {
-      cerr << "cd: missing argument" << endl;
+      const char* home = getenv("HOME");
+      if (home == nullptr) {
+          cerr << "cd: HOME not set" << endl;
+          return;
+      }
+      if (chdir(home) != 0) {
+          perror("cd");
+      }
       return;
   }
-  const string& path = args[1];
+
+  string path = expand_tilde(args[1]);
   if (chdir(path.c_str()) != 0) {
       perror(("cd: " + path).c_str());
   }
