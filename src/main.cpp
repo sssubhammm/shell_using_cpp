@@ -1,8 +1,10 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <vector>
 #include <cstdlib>     // for getenv
-#include <unistd.h>    // for access()
+#include <unistd.h>    // for access(), fork(), exec()
+#include <sys/wait.h>  // for wait()
 using namespace std;
 
 bool is_builtin(const string& cmd) {
@@ -25,6 +27,16 @@ string find_in_path(const string& cmd) {
     return "";
 }
 
+vector<string> split_args(const string& input) {
+    vector<string> args;
+    stringstream ss(input);
+    string arg;
+    while (ss >> arg) {
+        args.push_back(arg);
+    }
+    return args;
+}
+
 int main() {
     cout << std::unitbuf;
     cerr << std::unitbuf;
@@ -33,6 +45,8 @@ int main() {
     while (true) {
         cout << "$ ";
         if (!getline(cin, input)) break;
+
+        if (input.empty()) continue;
 
         if (input == "exit 0") break;
 
@@ -51,7 +65,37 @@ int main() {
                 }
             }
         } else {
-            cout << input << ": command not found" << endl;
+
+            vector<string> args = split_args(input);
+            if (args.empty()) continue;
+            
+            string cmd_path = find_in_path(args[0]);
+            if (!cmd_path.empty()) {
+
+                char** argv = new char*[args.size() + 1];
+                for (size_t i = 0; i < args.size(); i++) {
+                    argv[i] = const_cast<char*>(args[i].c_str());
+                }
+                argv[args.size()] = nullptr;
+                
+                pid_t pid = fork();
+                if (pid == 0) {
+
+                    execv(cmd_path.c_str(), argv);
+
+                    cerr << args[0] << ": execution failed" << endl;
+                    exit(1);
+                } else if (pid > 0) {
+
+                    wait(nullptr);
+                } else {
+                    cerr << "fork failed" << endl;
+                }
+                
+                delete[] argv;
+            } else {
+                cout << args[0] << ": command not found" << endl;
+            }
         }
     }
 
